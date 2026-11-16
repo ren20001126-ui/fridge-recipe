@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>冷蔵庫レシピ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#fbfaf6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="冷蔵庫レシピ">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>window.FIREBASE_CONFIG={apiKey:"AIzaSyCDTByhtumIiZQDH4wUbrg2qohAVb8s-hA",authDomain:"reizokoresipi.firebaseapp.com",projectId:"reizokoresipi",storageBucket:"reizokoresipi.firebasestorage.app",messagingSenderId:"1095847629329",appId:"1:1095847629329:web:86d992f978bff5fdb797b0"};</script>
+<style>
+/* VOICE: 台所の気さくな相棒。短い言葉、迷わせない
+   IDEA: 冷蔵庫のドア。上段の常備ポケット（調味料）と、中の棚（今ある食材）
+   PICTURE: 2段のドアポケットにマグネット風チップが並ぶ道具そのもの
+   COLOUR and TYPE: 白い琺瑯 #fbfaf6 / 墨 #22201c / バター #f6d36b / トマト #e2492f、Zen Maru Gothic
+   LAYOUT: 1カラム。入力→条件→ボタン→候補カード→作り方シート */
+:root{color-scheme:light dark;--bg:light-dark(#fbfaf6,#191815);--card:light-dark(#fff,#24221e);--ink:light-dark(#22201c,#f1eee6);--sub:light-dark(#6b665c,#a9a397);--line:light-dark(#e6e1d6,#3a3731);--butter:light-dark(#f6d36b,#c9a640);--butterSoft:light-dark(#fdf3cf,#3a321a);--tomato:light-dark(#e2492f,#ff6a4f);--tomSoft:light-dark(#fde6e0,#3d221c)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Zen Maru Gothic",system-ui,sans-serif;overflow-x:clip}
+.wrap{max-width:760px;margin:0 auto;padding:clamp(20px,4vw,40px) max(4vw,14px) 80px}
+h1{font-size:clamp(30px,6vw,44px);line-height:1.05;margin:0 0 6px;font-weight:900;text-wrap:balance}
+.lead{color:var(--sub);margin:0 0 22px}
+.door{background:var(--card);border:2px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:0 10px 30px -18px rgba(0,0,0,.35)}
+.pocket{padding:18px 18px 16px;border-bottom:2px dashed var(--line)}
+.pocket.keep{background:var(--butterSoft)}
+.pocket:last-child{border-bottom:0}
+.ph{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+h2{font-size:20px;margin:0;font-weight:900}
+.note{font-size:13px;color:var(--sub)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;min-height:36px}
+.chip{display:inline-flex;align-items:center;gap:2px;padding:3px 3px 3px 14px;min-height:44px;border-radius:999px;background:var(--card);border:2px solid var(--ink);font-weight:700;font-size:15px;white-space:nowrap}
+.keep .chip{background:var(--butter);border-color:transparent;color:#22201c}
+.chip button{border:0;background:rgba(0,0,0,.07);color:inherit;width:36px;height:36px;border-radius:50%;font-size:20px;cursor:pointer;line-height:1;flex:none;touch-action:manipulation}
+.chip button:hover{background:rgba(0,0,0,.08)}
+.empty{color:var(--sub);font-size:14px;padding:6px 0}
+.add{display:flex;gap:8px;margin-top:12px}
+input[type=text]{flex:1;font:inherit;font-size:16px;padding:10px 14px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink);min-height:44px}
+input:focus-visible,button:focus-visible,select:focus-visible{outline:3px solid var(--tomato);outline-offset:2px}
+.btn{font:inherit;font-weight:700;min-height:44px;padding:0 16px;border-radius:12px;border:2px solid var(--ink);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap}
+.btn.ghost{border-color:var(--line);font-size:14px;min-height:36px;padding:0 12px}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.pre{font:inherit;font-size:13px;padding:4px 10px;border-radius:999px;border:1.5px dashed var(--sub);background:transparent;color:var(--sub);cursor:pointer;min-height:32px}
+.pre:hover{color:var(--ink);border-color:var(--ink)}
+.opts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}
+.opts label{display:grid;gap:4px;font-size:13px;color:var(--sub);font-weight:700}
+select{font:inherit;font-size:16px;min-height:44px;padding:0 10px;border-radius:12px;border:2px solid var(--line);background:var(--card);color:var(--ink)}
+.toggle{display:flex;align-items:center;gap:10px;font-size:15px;margin-bottom:18px;cursor:pointer}
+.toggle input{width:22px;height:22px;accent-color:var(--tomato)}
+.go{width:100%;min-height:58px;font-size:20px;font-weight:900;border:0;border-radius:16px;background:var(--tomato);color:#fff;cursor:pointer;box-shadow:0 6px 0 light-dark(#a8301c,#a83b26);transition:transform .08s}
+.go:active{transform:translateY(3px);box-shadow:0 3px 0 light-dark(#a8301c,#a83b26)}
+.go:disabled{opacity:.6;cursor:wait}
+.status{margin:14px 0 0;font-size:15px;color:var(--sub);min-height:24px}
+.status.err{color:var(--tomato)}
+.results{display:grid;gap:14px;margin-top:18px}
+.card{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:16px 18px}
+.card h3{margin:0;font-size:22px;line-height:1.2;font-weight:900}
+.meta{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 8px;font-size:13px}
+.tag{padding:2px 10px;border-radius:999px;background:var(--butterSoft);font-weight:700;white-space:nowrap}
+.tag.miss{background:var(--tomSoft);color:var(--tomato)}
+.card p{margin:0 0 12px}
+.uses{font-size:14px;color:var(--sub);margin-bottom:12px}
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ext{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:12px;font-weight:700;font-size:14px;text-decoration:none;white-space:nowrap;border:2px solid}
+.ext.rk{color:light-dark(#bf0000,#ff7070);border-color:light-dark(#bf0000,#ff7070);background:light-dark(#fff,#2a1a1a)}
+.ext.cp{color:light-dark(#d9640f,#ff9a4d);border-color:light-dark(#d9640f,#ff9a4d);background:light-dark(#fff,#2a2118)}
+.ext:hover{filter:brightness(.95)}
+.wish{margin-top:22px;padding:16px 18px;border:2px dashed var(--line);border-radius:18px}.wish h2{margin-bottom:4px}
+.mode{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px;border-radius:16px;background:var(--line);margin-bottom:8px}
+.mb{font:inherit;font-weight:900;font-size:15px;min-height:46px;border:0;border-radius:12px;background:transparent;color:var(--sub);cursor:pointer}
+.mb[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:0 2px 6px -2px rgba(0,0,0,.25)}
+.modeNote{margin:0 4px 12px}.modeNote.err{color:var(--tomato)}
+.seed{padding:14px 16px;border-radius:16px;background:var(--tomSoft);margin-bottom:12px}.seed p{margin:0 0 10px}
+.door.ro .add,.door.ro .chip button,.door.ro .presets,.door.ro #clearItems{display:none}
+.settings{margin:0 0 16px;border:2px solid var(--line);border-radius:16px;background:var(--card)}
+.settings summary{cursor:pointer;padding:12px 16px;font-weight:900;min-height:44px}
+.setbody{padding:0 16px 16px}.setbody h3{font-size:16px;margin:14px 0 4px}
+.sec{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin:26px 0 0;padding-top:16px;border-top:2px solid var(--line)}
+.sec h2{font-size:22px}
+.more{width:100%;margin-top:14px;min-height:50px}
+.aiBtn{border-color:var(--tomato);color:var(--tomato)}
+.aiBtn:disabled{opacity:.6;cursor:wait}
+.grp{margin-top:18px}.grp h4{margin:0 0 10px;font-size:18px;font-weight:900;display:flex;align-items:center;gap:8px}.grp h4 .dot{width:12px;height:12px;border-radius:50%;background:var(--c)}.grp h4 .cnt{font-size:13px;color:var(--sub);font-weight:700}
+.tag.cat{background:var(--c);color:#22201c}
+.tag.ai{background:var(--tomSoft);color:var(--tomato)}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:10}
+.sheet.on{display:flex}
+.panel{background:var(--card);width:min(760px,100%);max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:22px max(4vw,16px) 40px}
+.panel h3{font-size:clamp(24px,5vw,32px);margin:0 0 4px;font-weight:900;line-height:1.15}
+.close{float:right}
+.ing{width:100%;border-collapse:collapse;margin:10px 0 18px}
+.ing td{padding:8px 4px;border-bottom:1px solid var(--line)}
+.ing td:last-child{text-align:right;white-space:nowrap;color:var(--sub)}
+.steps{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.steps li{display:grid;grid-template-columns:36px minmax(0,1fr);gap:10px;align-items:start;padding:10px;border-radius:12px;background:var(--bg);cursor:pointer}
+.steps li .n{width:32px;height:32px;border-radius:50%;background:var(--butter);color:#22201c;display:grid;place-items:center;font-weight:900}
+.steps li.done{opacity:.45}.steps li.done .n{background:var(--line)}
+.tips{margin-top:16px;padding:12px 14px;border-radius:12px;background:var(--butterSoft);font-size:15px}
+.spin{display:inline-block;width:16px;height:16px;border:3px solid var(--line);border-top-color:var(--tomato);border-radius:50%;animation:r 1s linear infinite;vertical-align:-3px;margin-right:6px}
+@keyframes r{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}.go{transition:none}}
+@media(max-width:600px){.opts{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>冷蔵庫レシピ</h1>
+  <p class="lead">常備の調味料と今ある食材から、定番料理<span id="dictCount"></span>品の辞書で作れる料理を探します。辞書にない料理はClaudeが提案します。</p>
+  <details class="settings" id="settings">
+    <summary>共有リンクとClaudeの設定</summary>
+    <div class="setbody">
+      <h3>みんなの冷蔵庫の共有リンク</h3>
+      <p class="note">このリンクを開いた人どうしで、みんなの冷蔵庫を一緒に編集できます。知らない人には送らないでください。</p>
+      <div class="add"><input type="text" id="shareUrl" readonly aria-label="共有リンク"><button class="btn" type="button" id="copyShare">コピー</button></div>
+      <p class="status" id="shareStatus"></p>
+      <h3>ClaudeのAPIキー</h3>
+      <p class="note">Claudeの提案と作り方に使います。キーはこの端末の中だけに保存され、共有されません。利用料はキーの持ち主のAnthropicアカウントにかかります。</p>
+      <form class="add" id="keyForm"><input type="password" id="keyIn" placeholder="sk-ant-..." autocomplete="off" aria-label="APIキー"><button class="btn" type="submit">保存</button></form>
+      <p class="status" id="keyStatus"></p>
+      <button class="btn ghost" type="button" id="keyClear">この端末からキーを削除</button>
+    </div>
+  </details>
+
+  <div class="mode" role="group" aria-label="冷蔵庫の切り替え">
+    <button type="button" id="mMine" class="mb">自分の冷蔵庫</button>
+    <button type="button" id="mShared" class="mb">みんなの冷蔵庫</button>
+  </div>
+  <p class="note modeNote" id="modeNote"></p>
+  <div class="seed" id="sharedEmpty" hidden>
+    <p>みんなの冷蔵庫はまだ空です。自分の冷蔵庫の中身をコピーして始めるか、下から追加してください。</p>
+    <button type="button" class="btn" id="seedBtn">自分の冷蔵庫をコピーして始める</button>
+  </div>
+  <div class="door">
+    <section class="pocket keep">
+      <div class="ph"><h2>常備の調味料・主食</h2><span class="note" id="saveNote">いつもあるもの</span></div>
+      <div class="chips" id="seasonChips"></div>
+      <form class="add" id="seasonForm"><input type="text" id="seasonIn" placeholder="例：オイスターソース、パスタ" autocomplete="off" aria-label="調味料・主食を追加"><button class="btn" type="submit">追加</button></form>
+      <div class="presets" id="presets"></div>
+    </section>
+    <section class="pocket">
+      <div class="ph"><h2>今ある食材</h2><button class="btn ghost" id="clearItems" type="button">全部消す</button></div>
+      <div class="chips" id="itemChips"></div>
+      <form class="add" id="itemForm"><input type="text" id="itemIn" placeholder="例：玉ねぎ 1個、豚こま 200g" autocomplete="off" aria-label="食材を追加"><button class="btn" type="submit">追加</button></form>
+      <div class="note" style="margin-top:8px">「、」区切りでまとめて追加できます。量は書かなくてもOK。</div>
+    </section>
+  </div>
+
+  <div class="opts">
+    <label>食べたい量<select id="size"><option value="">おまかせ</option><option value="big">がっつり（ご飯・麺）</option><option value="main">おかず（主菜）</option><option value="light">軽め・副菜</option><option value="soup">汁物・鍋</option><option value="snack">おやつ</option></select></label>
+    <label>ジャンル<select id="genre"><option>おまかせ</option><option>和食</option><option>洋食</option><option>中華</option><option>エスニック</option></select></label>
+    <label>調理時間<select id="time"><option>指定なし</option><option>15分以内</option><option>30分以内</option><option>じっくり</option></select></label>
+    <label>人数<select id="people"><option>1人分</option><option selected>2人分</option><option>3人分</option><option>4人分</option></select></label>
+  </div>
+  <label class="toggle"><input type="checkbox" id="buy"> 少しなら買い足してもいい</label>
+
+  <button class="go" id="go" type="button">料理を探す</button>
+  <p class="status" id="status"></p>
+  <section class="wish">
+    <h2>作りたい料理から</h2>
+    <p class="note">食べたい料理名を入れると、今ある食材と調味料で作る方法と、足りないものを出します。</p>
+    <form class="add" id="wishForm"><input type="text" id="wishIn" maxlength="40" placeholder="例：ハンバーグ、親子丼" autocomplete="off" aria-label="作りたい料理名"><button class="btn" type="submit">作り方を見る</button></form>
+    <p class="status" id="wishStatus"></p>
+  </section>
+  <div id="resultArea" hidden>
+    <div class="sec"><h2 id="dictHead">定番料理</h2></div>
+    <div class="results" id="dictList"></div>
+    
+    <div class="sec ai"><h2>辞書にない料理</h2><span class="note" id="aiStatus"></span></div>
+    <div class="results" id="aiList"></div>
+    <button class="btn more aiBtn" id="aiBtn" type="button">Claudeに定番以外も考えてもらう</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="rTitle">
+  <div class="panel" id="panel"></div>
+</div>
+
+<script type="text/plain" id="dishData">
+肉じゃが|和|35|じゃがいも 玉ねぎ 豚肉/牛肉 ?にんじん ?こんにゃく|醤油 砂糖 みりん 酒|main
+豚の生姜焼き|和|15|豚肉 ?玉ねぎ ?キャベツ|醤油 みりん 酒 しょうが|main
+親子丼|和|20|鶏肉 卵 玉ねぎ ご飯|醤油 みりん 砂糖 だし|big
+他人丼|和|20|豚肉/牛肉 卵 玉ねぎ ご飯|醤油 みりん 砂糖 だし|big
+牛丼|和|20|牛肉 玉ねぎ ご飯|醤油 みりん 砂糖 酒|big
+豚丼|和|15|豚肉 ご飯 ?玉ねぎ|醤油 みりん 砂糖|big
+とんかつ|和|30|豚肉 卵 ?キャベツ|小麦粉 パン粉 油 塩|main
+カツ丼|和|35|豚肉 卵 玉ねぎ ご飯|小麦粉 パン粉 油 醤油 みりん だし|big
+鶏の唐揚げ|和|30|鶏肉|醤油 酒 にんにく しょうが 片栗粉 油|main
+鶏の竜田揚げ|和|25|鶏肉|醤油 みりん しょうが 片栗粉 油|main
+鶏の照り焼き|和|20|鶏肉|醤油 みりん 砂糖 酒|main
+チキン南蛮|和|30|鶏肉 卵|小麦粉 酢 砂糖 醤油 マヨネーズ 油|main
+鶏つくね|和|25|ひき肉 ?ねぎ ?大葉|醤油 みりん 砂糖 片栗粉|main
+筑前煮|和|40|鶏肉 にんじん ごぼう ?れんこん ?こんにゃく ?里芋 ?きのこ|醤油 みりん 砂糖 だし|main
+鶏大根|和|40|鶏肉 大根|醤油 みりん 砂糖 しょうが|main
+手羽元のさっぱり煮|和|40|鶏肉 ?卵|酢 醤油 砂糖|main
+焼き鳥|和|30|鶏肉 ?ねぎ|醤油 みりん 砂糖 塩|main
+塩だれチキン|和|15|鶏肉 ?ねぎ|塩 ごま油 にんにく 鶏ガラ|main
+鶏そぼろ丼|和|15|ひき肉 ご飯 ?卵|醤油 みりん 砂糖 しょうが|big
+ぶり大根|和|45|ぶり 大根|醤油 みりん 砂糖 酒 しょうが|main
+ぶりの照り焼き|和|15|ぶり|醤油 みりん 酒 砂糖|main
+鮭の塩焼き|和|15|鮭|塩|main
+鮭のちゃんちゃん焼き|和|20|鮭 キャベツ ?玉ねぎ ?きのこ ?にんじん|味噌 砂糖 みりん バター|main
+鮭のホイル焼き|和|20|鮭 ?玉ねぎ ?きのこ|バター 醤油|main
+石狩鍋|和|30|鮭 白菜 ?じゃがいも ?ねぎ ?豆腐|味噌 だし|soup
+さばの味噌煮|和|25|さば|味噌 砂糖 酒 しょうが|main
+さばの塩焼き|和|15|さば|塩|main
+さばの竜田揚げ|和|20|さば|醤油 しょうが 片栗粉 油|main
+さんまの塩焼き|和|20|さんま|塩|main
+さんまの蒲焼き|和|20|さんま|醤油 みりん 砂糖 小麦粉 油|main
+あじフライ|和|25|あじ 卵|小麦粉 パン粉 油|main
+あじの南蛮漬け|和|30|あじ 玉ねぎ ?にんじん ?ピーマン|小麦粉 酢 砂糖 醤油 油|main
+かれいの煮付け|和|25|かれい|醤油 みりん 砂糖 酒 しょうが|main
+たらのホイル焼き|和|20|たら ?玉ねぎ ?きのこ|バター 醤油 塩|main
+いかと大根の煮物|和|40|いか 大根|醤油 みりん 砂糖 酒|main
+いかのバター醤油焼き|和|10|いか|バター 醤油|light
+ほたてのバター醤油焼き|和|10|ほたて|バター 醤油|light
+あさりの酒蒸し|和|10|あさり|酒 醤油|main
+たこの唐揚げ|和|20|たこ|醤油 しょうが 片栗粉 油|main
+まぐろ丼|和|5|まぐろ ご飯 ?大葉|醤油|big
+しらす丼|和|5|しらす ご飯 ?大葉 ?卵|醤油|big
+天ぷら|和|30|えび/さつまいも/なす/かぼちゃ/きのこ ?卵|小麦粉 油|main
+かき揚げ|和|25|玉ねぎ ?にんじん ?えび|小麦粉 油|main
+天丼|和|30|えび/なす/かぼちゃ ご飯|小麦粉 油 醤油 みりん 砂糖|big
+肉豆腐|和|20|豆腐 牛肉/豚肉 ?ねぎ ?玉ねぎ|醤油 みりん 砂糖 酒|main
+揚げ出し豆腐|和|20|豆腐 ?ねぎ|片栗粉 油 めんつゆ|light
+冷奴|和|5|豆腐 ?ねぎ ?しょうが|醤油|light
+湯豆腐|和|15|豆腐 ?ねぎ|ポン酢|soup
+豆腐ステーキ|和|15|豆腐|片栗粉 醤油 油|light
+豆腐ハンバーグ|和|25|豆腐 ひき肉 ?玉ねぎ|片栗粉 醤油 塩|main
+豆腐チャンプルー|和|15|豆腐 ?キャベツ ?もやし ?豚肉 ?卵|醤油 塩 油|main
+ゴーヤチャンプルー|和|15|ゴーヤ 豆腐 ?豚肉 ?卵|醤油 塩 油|main
+厚揚げの煮物|和|20|厚揚げ|醤油 みりん 砂糖 だし|light
+高野豆腐の煮物|和|25|高野豆腐 ?にんじん|醤油 みりん 砂糖 だし|light
+すき焼き|和|30|牛肉 ねぎ ?豆腐 ?白菜 ?こんにゃく ?卵 ?きのこ|醤油 砂糖 みりん 酒|soup
+しゃぶしゃぶ|和|20|豚肉/牛肉 ?白菜 ?ねぎ ?豆腐 ?水菜|ポン酢|soup
+寄せ鍋|和|30|白菜 鶏肉/豚肉/鮭/たら ?ねぎ ?豆腐 ?きのこ|醤油 みりん だし|soup
+水炊き|和|40|鶏肉 白菜 ?ねぎ ?豆腐 ?きのこ|ポン酢|soup
+鶏団子鍋|和|30|ひき肉 白菜 ?ねぎ ?豆腐|醤油 だし 片栗粉|soup
+ミルフィーユ鍋|和|30|白菜 豚肉|だし 醤油 酒|soup
+白菜と豚バラの重ね蒸し|和|25|白菜 豚肉|ポン酢 酒|main
+豚バラ大根|和|35|豚肉 大根|醤油 みりん 砂糖 酒 しょうが|main
+豚もやし蒸し|和|15|豚肉 もやし|ポン酢 酒|main
+牛肉のしぐれ煮|和|20|牛肉|醤油 みりん 砂糖 酒 しょうが|main
+豚肉のアスパラ巻き|和|20|豚肉 アスパラ|醤油 みりん 砂糖|main
+えのきの肉巻き|和|20|豚肉 きのこ|醤油 みりん 砂糖|main
+なすと豚肉の甘辛炒め|和|15|なす 豚肉|醤油 みりん 砂糖 油|main
+豚こま唐揚げ|和|20|豚肉|醤油 酒 片栗粉 油 しょうが|main
+とんぺい焼き|和|10|豚肉 卵 ?キャベツ|ソース マヨネーズ 油|main
+豚汁|和|30|豚肉 大根 ?にんじん ?ごぼう ?ねぎ ?こんにゃく ?豆腐|味噌 だし|soup
+味噌汁|和|10|豆腐/わかめ/油揚げ/大根/玉ねぎ/じゃがいも/なす/キャベツ/あさり/きのこ ?ねぎ|味噌 だし|soup
+けんちん汁|和|30|大根 豆腐 ?にんじん ?ごぼう ?里芋|醤油 だし ごま油|soup
+かき玉汁|和|10|卵 ?ねぎ|醤油 だし 片栗粉 塩|soup
+茶碗蒸し|和|30|卵 ?鶏肉 ?えび ?きのこ|だし 醤油 みりん|light
+だし巻き卵|和|10|卵|だし 醤油 砂糖 油|light
+卵焼き|和|10|卵|砂糖 塩 油|light
+煮卵|和|15|卵|醤油 みりん|light
+ゆで卵|和|12|卵|塩|light
+納豆オムレツ|和|10|納豆 卵 ?ねぎ|醤油 油|light
+納豆ご飯|和|3|納豆 ご飯 ?ねぎ|醤油|light
+卵かけご飯|和|3|卵 ご飯|醤油|light
+オクラ納豆|和|5|オクラ 納豆|醤油|light
+オクラのおかか和え|和|5|オクラ|醤油 ?かつお節|light
+にんじんしりしり|和|10|にんじん 卵 ?ツナ|醤油 だし 油|light
+きんぴらごぼう|和|15|ごぼう ?にんじん|醤油 みりん 砂糖 ごま油|light
+れんこんのきんぴら|和|15|れんこん|醤油 みりん 砂糖 ごま油|light
+れんこんのはさみ焼き|和|25|れんこん ひき肉|片栗粉 醤油 みりん 砂糖|main
+ピーマンとちくわのきんぴら|和|10|ピーマン ちくわ|醤油 みりん ごま油|light
+無限ピーマン|和|10|ピーマン ?ツナ|鶏ガラ ごま油|light
+ひじきの煮物|和|25|ひじき ?にんじん ?油揚げ|醤油 みりん 砂糖 だし|light
+切り干し大根の煮物|和|25|切り干し大根 ?にんじん ?油揚げ|醤油 みりん 砂糖 だし|light
+かぼちゃの煮物|和|20|かぼちゃ|醤油 みりん 砂糖|light
+里芋の煮っころがし|和|30|里芋|醤油 みりん 砂糖 だし|light
+大根の煮物|和|35|大根 ?油揚げ|醤油 みりん だし|light
+ふろふき大根|和|45|大根|味噌 砂糖 みりん だし|light
+大根ステーキ|和|20|大根|バター 醤油|light
+大根サラダ|和|10|大根 ?ツナ ?水菜 ?大葉|マヨネーズ 醤油|light
+おでん|和|60|大根 ?卵 ?ちくわ ?こんにゃく ?厚揚げ|醤油 みりん だし|soup
+ほうれん草のおひたし|和|10|ほうれん草|醤油 だし|light
+ほうれん草のごま和え|和|10|ほうれん草|ごま 醤油 砂糖|light
+小松菜のおひたし|和|10|小松菜|醤油 だし|light
+小松菜と油揚げの煮びたし|和|10|小松菜 油揚げ|醤油 みりん だし|light
+いんげんのごま和え|和|10|いんげん|ごま 醤油 砂糖|light
+きゅうりの酢の物|和|10|きゅうり ?わかめ ?しらす|酢 砂糖 塩|light
+きゅうりの浅漬け|和|10|きゅうり|塩|light
+キャベツの浅漬け|和|10|キャベツ ?きゅうり|塩|light
+白菜の浅漬け|和|10|白菜|塩|light
+ちくわきゅうり|和|3|ちくわ きゅうり||light
+ちくわの磯辺揚げ|和|15|ちくわ|小麦粉 油 ?青のり|light
+ツナキャベツ|和|10|キャベツ ツナ|醤油|light
+なすの揚げびたし|和|20|なす|めんつゆ 油|light
+焼きなす|和|15|なす ?しょうが|醤油|light
+なすの味噌炒め|和|15|なす ?豚肉 ?ピーマン|味噌 砂糖 みりん 油|main
+なすの煮びたし|和|15|なす|醤油 みりん だし|light
+長芋のバター醤油焼き|和|10|長芋|バター 醤油|light
+きのこのバター醤油炒め|和|10|きのこ|バター 醤油|light
+大学芋|和|25|さつまいも|砂糖 醤油 油 ?ごま|snack
+冷やしトマト|和|3|トマト|塩|light
+炊き込みご飯|和|60|ご飯 ?鶏肉 ?にんじん ?ごぼう ?きのこ ?油揚げ|醤油 みりん 酒 だし|big
+おにぎり|和|10|ご飯 ?鮭 ?ツナ ?梅干し ?しらす|塩|light
+焼きおにぎり|和|15|ご飯|醤油 みりん|light
+雑炊|和|15|ご飯 卵 ?ねぎ ?鶏肉|醤油 だし 塩|light
+おかゆ|和|30|ご飯 ?卵|塩|light
+ちらし寿司|和|30|ご飯 ?卵 ?えび ?きゅうり ?にんじん|酢 砂糖 塩|big
+いなり寿司|和|40|ご飯 油揚げ|酢 砂糖 醤油 みりん だし|big
+焼肉丼|和|10|牛肉/豚肉 ご飯 ?玉ねぎ|焼肉のタレ|big
+お好み焼き|和|25|キャベツ 卵 ?豚肉 ?天かす ?ねぎ ?えび ?いか|小麦粉 ソース 油 ?マヨネーズ|big
+ねぎ焼き|和|15|ねぎ ?豚肉 ?卵|小麦粉 ソース 油|light
+たこ焼き|和|30|たこ 卵 ?ねぎ ?天かす|小麦粉 ソース だし 油|light
+焼きうどん|和|15|うどん キャベツ ?豚肉 ?玉ねぎ ?にんじん|醤油 だし 油|big
+きつねうどん|和|15|うどん 油揚げ ?ねぎ|醤油 みりん 砂糖 だし|big
+かけうどん|和|10|うどん ?ねぎ|醤油 みりん だし|big
+月見うどん|和|10|うどん 卵 ?ねぎ|醤油 みりん だし|big
+肉うどん|和|15|うどん 牛肉/豚肉 ?ねぎ|醤油 みりん 砂糖 だし|big
+カレーうどん|和|20|うどん ?豚肉 ?玉ねぎ ?ねぎ|カレールー だし 醤油|big
+鍋焼きうどん|和|20|うどん 卵 ?ねぎ ?鶏肉 ?かまぼこ ?きのこ|醤油 みりん だし|big
+釜玉うどん|和|10|うどん 卵 ?ねぎ|めんつゆ|big
+ざるそば|和|10|そば ?ねぎ|めんつゆ|big
+かけそば|和|10|そば ?ねぎ|めんつゆ|big
+そうめん|和|10|そうめん ?ねぎ ?大葉|めんつゆ|big
+にゅうめん|和|10|そうめん ?卵 ?ねぎ|醤油 だし 塩|light
+和風きのこパスタ|和|20|パスタ きのこ ?ベーコン|醤油 バター にんにく|big
+明太子パスタ|和|15|パスタ 明太子 ?大葉|バター|big
+たらこパスタ|和|15|パスタ たらこ ?大葉|バター|big
+和風ツナパスタ|和|15|パスタ ツナ ?大葉 ?きのこ|醤油 バター|big
+納豆パスタ|和|15|パスタ 納豆 ?大葉 ?ねぎ|醤油 バター|big
+麻婆豆腐|中|20|豆腐 ひき肉 ?ねぎ|豆板醤 鶏ガラ 醤油 片栗粉 にんにく しょうが ?甜麺醤|main
+麻婆茄子|中|20|なす ひき肉 ?ねぎ|豆板醤 鶏ガラ 醤油 片栗粉 にんにく|main
+麻婆春雨|中|20|春雨 ひき肉 ?ねぎ ?ニラ|豆板醤 鶏ガラ 醤油 砂糖|main
+回鍋肉|中|15|豚肉 キャベツ ?ピーマン ?ねぎ|味噌 醤油 砂糖 ?豆板醤 ?甜麺醤|main
+青椒肉絲|中|20|ピーマン 豚肉/牛肉 ?たけのこ|オイスターソース 醤油 片栗粉 酒|main
+酢豚|中|30|豚肉 玉ねぎ ?ピーマン ?にんじん|酢 砂糖 ケチャップ 醤油 片栗粉 油|main
+エビチリ|中|20|えび ?ねぎ|ケチャップ 豆板醤 鶏ガラ 片栗粉 にんにく しょうが|main
+エビマヨ|中|20|えび|マヨネーズ 片栗粉 ケチャップ 砂糖 油|main
+八宝菜|中|20|白菜 豚肉/えび/いか ?にんじん ?きのこ ?ピーマン|鶏ガラ オイスターソース 片栗粉 醤油|main
+中華丼|中|20|白菜 豚肉 ご飯 ?にんじん ?きのこ ?えび|鶏ガラ オイスターソース 片栗粉 醤油|big
+野菜炒め|中|10|キャベツ/もやし ?豚肉 ?にんじん ?ピーマン ?玉ねぎ ?ニラ|塩 こしょう 鶏ガラ 油|main
+もやし炒め|中|5|もやし ?豚肉 ?ニラ|塩 こしょう 油|light
+レバニラ炒め|中|15|レバー ニラ ?もやし|醤油 オイスターソース 片栗粉 油|main
+ニラ玉|中|10|ニラ 卵|鶏ガラ 醤油 油|light
+トマトと卵の炒め物|中|10|トマト 卵 ?ねぎ|鶏ガラ 塩 油|light
+かに玉|中|15|卵 カニカマ ?ねぎ|鶏ガラ 片栗粉 醤油 砂糖 酢 油|light
+天津飯|中|15|卵 ご飯 ?カニカマ ?ねぎ|鶏ガラ 片栗粉 醤油 酢 砂糖|big
+チャーハン|中|10|ご飯 卵 ?ねぎ ?ハム ?チャーシュー|鶏ガラ 醤油 油 塩 こしょう|big
+レタスチャーハン|中|10|レタス ご飯 卵|鶏ガラ 塩 油|big
+餃子|中|40|ひき肉 餃子の皮 キャベツ/白菜 ?ニラ|醤油 ごま油 しょうが にんにく|main
+焼売|中|30|ひき肉 玉ねぎ 焼売の皮|醤油 ごま油 片栗粉 砂糖|main
+春巻き|中|30|春巻きの皮 春雨/豚肉 ?にんじん ?きのこ ?ニラ ?たけのこ|オイスターソース 醤油 片栗粉 油|main
+中華スープ|中|10|卵/わかめ/豆腐 ?ねぎ|鶏ガラ 塩 ごま油|soup
+わかめスープ|中|5|わかめ ?ねぎ ?卵|鶏ガラ ごま油 塩|soup
+トマトと卵のスープ|中|10|トマト 卵|鶏ガラ 塩|soup
+白菜スープ|中|15|白菜 ?ハム ?ベーコン ?豚肉|鶏ガラ 塩|soup
+肉団子スープ|中|25|ひき肉 白菜 ?ねぎ|鶏ガラ 塩 片栗粉 しょうが|soup
+酸辣湯|中|15|豆腐 卵 ?きのこ|鶏ガラ 酢 醤油 片栗粉 ?ラー油|soup
+春雨サラダ|中|15|春雨 きゅうり ?ハム ?卵 ?にんじん|酢 醤油 砂糖 ごま油|light
+たたききゅうり|中|5|きゅうり|ごま油 塩 鶏ガラ|light
+バンバンジー|中|20|鶏肉 きゅうり ?トマト|ごま 醤油 砂糖 酢|main
+よだれ鶏|中|25|鶏肉 ?ねぎ|醤油 酢 砂糖 ごま油 ?ラー油|main
+油淋鶏|中|25|鶏肉 ?ねぎ|片栗粉 油 醤油 酢 砂糖|main
+蒸し鶏|中|25|鶏肉 ?ねぎ|酒 塩 しょうが|main
+大根餅|中|25|大根 ?ねぎ ?ハム|片栗粉 塩 ごま油|light
+小松菜と豚肉の炒め物|中|10|小松菜 豚肉|鶏ガラ 醤油 にんにく 油|main
+ブロッコリーとえびの炒め物|中|15|ブロッコリー えび|鶏ガラ にんにく 片栗粉 油|main
+牛肉ときのこのオイスター炒め|中|15|牛肉 きのこ ?ピーマン|オイスターソース 醤油 片栗粉|main
+豚の角煮|中|90|豚肉 ?卵 ?ねぎ|醤油 砂糖 酒 しょうが|main
+チャーシュー|中|90|豚肉 ?ねぎ|醤油 砂糖 酒 みりん しょうが にんにく|main
+焼きそば|中|15|中華麺 キャベツ ?豚肉 ?もやし ?にんじん|ソース 油|big
+塩焼きそば|中|15|中華麺 キャベツ/もやし ?豚肉|鶏ガラ 塩 こしょう 油|big
+あんかけ焼きそば|中|25|中華麺 白菜 ?豚肉 ?えび ?にんじん ?きのこ|鶏ガラ オイスターソース 片栗粉 醤油 油|big
+ちゃんぽん|中|25|中華麺 キャベツ ?もやし ?豚肉 ?えび ?いか ?かまぼこ ?にんじん|鶏ガラ 塩 油|big
+ラーメン|中|15|中華麺 ?ねぎ ?卵 ?もやし ?チャーシュー|鶏ガラ 醤油 ごま油|big
+担々麺|中|20|中華麺 ひき肉 ?ねぎ ?ほうれん草 ?チンゲン菜|ごま 豆板醤 鶏ガラ 醤油|big
+冷やし中華|中|20|中華麺 きゅうり 卵 ?ハム ?トマト ?カニカマ|酢 醤油 砂糖 ごま油|big
+ジャージャー麺|中|20|中華麺 ひき肉 きゅうり ?ねぎ|味噌 砂糖 醤油 ?甜麺醤|big
+豚キムチ|韓|10|豚肉 キムチ ?ニラ ?玉ねぎ|ごま油 醤油|main
+キムチチャーハン|韓|15|キムチ ご飯 ?豚肉 ?卵|ごま油 醤油|big
+キムチ鍋|韓|30|キムチ 豚肉 ?白菜 ?豆腐 ?ニラ ?ねぎ|鶏ガラ 醤油|soup
+チヂミ|韓|20|ニラ ?えび ?いか ?卵|小麦粉 片栗粉 ごま油 醤油|main
+ビビンバ|韓|25|ひき肉/牛肉 もやし ご飯 ?ほうれん草 ?にんじん ?卵|ごま油 醤油 砂糖 ?コチュジャン|big
+プルコギ|韓|20|牛肉 玉ねぎ ?にんじん ?ピーマン|醤油 砂糖 ごま油 にんにく|main
+スンドゥブ|韓|20|豆腐 ?あさり ?豚肉 ?卵 ?ねぎ|鶏ガラ ごま油 醤油 ?コチュジャン|soup
+タッカルビ|韓|25|鶏肉 キャベツ ?さつまいも ?玉ねぎ ?チーズ|醤油 砂糖 ごま油 ?コチュジャン|main
+チャプチェ|韓|25|春雨 牛肉/豚肉 ?ピーマン ?にんじん ?玉ねぎ ?ニラ|醤油 砂糖 ごま油|main
+もやしナムル|韓|5|もやし|ごま油 鶏ガラ 塩|light
+ほうれん草のナムル|韓|5|ほうれん草|ごま油 鶏ガラ 塩|light
+ガパオライス|エ|20|ひき肉/鶏肉 ご飯 ?ピーマン ?玉ねぎ ?パプリカ ?卵|オイスターソース 砂糖 にんにく 醤油 ?ナンプラー|big
+ナシゴレン|エ|20|ご飯 ?えび ?鶏肉 ?卵 ?玉ねぎ|ケチャップ 醤油 にんにく 油 ?ナンプラー|big
+タコライス|エ|20|ひき肉 ご飯 ?レタス ?トマト ?チーズ|ケチャップ ソース 塩 こしょう|big
+ヤムウンセン|エ|15|春雨 ?えび ?ひき肉 ?玉ねぎ ?トマト|砂糖 酢 ?ナンプラー|light
+生春巻き|エ|20|ライスペーパー ?えび ?レタス ?きゅうり ?にんじん||light
+タンドリーチキン|エ|30|鶏肉 ?ヨーグルト|カレー粉 ケチャップ にんにく 塩|main
+目玉焼き|洋|5|卵|塩 こしょう 油|light
+スクランブルエッグ|洋|5|卵 ?牛乳|バター 塩|light
+ベーコンエッグ|洋|5|ベーコン 卵|塩 こしょう|light
+ハムエッグ|洋|5|ハム 卵|塩 こしょう|light
+オムレツ|洋|10|卵 ?牛乳 ?ひき肉 ?玉ねぎ|バター 塩 こしょう|light
+スパニッシュオムレツ|洋|25|卵 じゃがいも ?玉ねぎ ?ベーコン|塩 油|light
+オムライス|洋|25|卵 ご飯 鶏肉/ウインナー/ハム ?玉ねぎ|ケチャップ バター 塩 こしょう|big
+チキンライス|洋|20|ご飯 鶏肉 玉ねぎ|ケチャップ バター 塩 こしょう|big
+ピラフ|洋|20|ご飯 ?えび ?玉ねぎ ?ピーマン ?コーン ?ベーコン|コンソメ バター 塩|big
+ガーリックライス|洋|10|ご飯|にんにく バター 醤油|big
+リゾット|洋|20|ご飯 ?チーズ ?きのこ ?ベーコン ?牛乳|コンソメ バター|big
+トマトリゾット|洋|20|ご飯 トマト缶 ?チーズ ?玉ねぎ|コンソメ 塩|big
+ドリア|洋|35|ご飯 牛乳 チーズ ?鶏肉 ?玉ねぎ|小麦粉 バター 塩|big
+グラタン|洋|40|パスタ/じゃがいも 牛乳 チーズ ?鶏肉 ?玉ねぎ ?えび|小麦粉 バター 塩 コンソメ|big
+ロコモコ|洋|30|ひき肉 卵 ご飯 ?玉ねぎ ?レタス|ケチャップ ソース パン粉 塩|big
+ハヤシライス|洋|35|牛肉 玉ねぎ ご飯 ?きのこ|ケチャップ ソース バター 小麦粉|big
+カレーライス|洋|45|玉ねぎ ご飯 豚肉/牛肉/鶏肉 ?じゃがいも ?にんじん|カレールー 油|big
+キーマカレー|洋|25|ひき肉 玉ねぎ ご飯 ?にんじん ?トマト ?なす|カレールー 油|big
+クリームシチュー|洋|45|玉ねぎ 牛乳 鶏肉/豚肉 ?じゃがいも ?にんじん ?ブロッコリー|シチュールー 油|main
+ビーフシチュー|洋|90|牛肉 玉ねぎ ?じゃがいも ?にんじん|シチュールー 油|main
+ハンバーグ|洋|35|ひき肉 玉ねぎ ?卵 ?牛乳|パン粉 ケチャップ ソース 塩 こしょう 油|main
+煮込みハンバーグ|洋|40|ひき肉 玉ねぎ ?きのこ ?卵|パン粉 ケチャップ ソース 塩 こしょう|main
+ミートボール|洋|30|ひき肉 ?玉ねぎ ?卵|片栗粉 ケチャップ ソース 砂糖|main
+ピーマンの肉詰め|洋|30|ピーマン ひき肉 ?玉ねぎ|片栗粉 ケチャップ ソース 塩 油|main
+ロールキャベツ|洋|50|キャベツ ひき肉 ?玉ねぎ|コンソメ 塩 こしょう|main
+メンチカツ|洋|35|ひき肉 卵 キャベツ/玉ねぎ|小麦粉 パン粉 油 塩|main
+コロッケ|洋|45|じゃがいも ひき肉 玉ねぎ 卵|小麦粉 パン粉 油 塩|main
+チキンカツ|洋|25|鶏肉 卵|小麦粉 パン粉 油|main
+えびフライ|洋|25|えび 卵|小麦粉 パン粉 油|main
+チキンソテー|洋|20|鶏肉|塩 こしょう 油|main
+ピカタ|洋|15|鶏肉/豚肉 卵|小麦粉 塩 こしょう 油|main
+鶏肉のトマト煮|洋|35|鶏肉 トマト缶 玉ねぎ ?きのこ|コンソメ にんにく 塩 こしょう|main
+チキンのクリーム煮|洋|25|鶏肉 牛乳 ?玉ねぎ ?きのこ ?ほうれん草 ?ブロッコリー|バター 小麦粉 コンソメ|main
+鶏ハム|洋|30|鶏肉|塩 砂糖|main
+ステーキ|洋|15|牛肉|塩 こしょう 油|main
+ポークソテー|洋|15|豚肉|塩 こしょう 油|main
+ポークチャップ|洋|20|豚肉 ?玉ねぎ|ケチャップ ソース 小麦粉|main
+ビーフストロガノフ|洋|30|牛肉 玉ねぎ 牛乳/生クリーム ?きのこ|バター ケチャップ ソース 小麦粉|main
+鮭のムニエル|洋|15|鮭|小麦粉 バター 塩 こしょう|main
+鮭のクリーム煮|洋|20|鮭 牛乳 ?玉ねぎ ?きのこ ?ほうれん草|バター 小麦粉 コンソメ|main
+鮭のマリネ|洋|15|鮭 玉ねぎ|酢 油 塩 砂糖|light
+アクアパッツァ|洋|25|たら/鯛 あさり ?トマト|にんにく 油 塩 酒|main
+えびのガーリック炒め|洋|15|えび|にんにく バター 塩 こしょう|main
+アヒージョ|洋|15|えび/きのこ/たこ/ブロッコリー|にんにく 油 塩 ?鷹の爪|light
+ナポリタン|洋|20|パスタ 玉ねぎ ウインナー/ベーコン ?ピーマン|ケチャップ バター|big
+ミートソーススパゲッティ|洋|35|パスタ ひき肉 玉ねぎ トマト缶 ?にんじん|ケチャップ コンソメ ソース 塩|big
+カルボナーラ|洋|20|パスタ 卵 ベーコン ?チーズ ?牛乳|塩 こしょう|big
+ペペロンチーノ|洋|15|パスタ ?キャベツ ?ベーコン|にんにく 油 塩 ?鷹の爪|big
+ボンゴレ|洋|20|パスタ あさり|にんにく 油 酒 塩|big
+トマトパスタ|洋|20|パスタ トマト缶 ?ベーコン ?玉ねぎ ?なす ?ツナ|にんにく 油 塩 コンソメ|big
+クリームパスタ|洋|20|パスタ 牛乳/生クリーム ?ベーコン ?きのこ ?鮭 ?ほうれん草|バター コンソメ 塩|big
+マカロニサラダ|洋|20|パスタ ?きゅうり ?ハム ?にんじん|マヨネーズ 塩|light
+ポテトサラダ|洋|25|じゃがいも ?きゅうり ?にんじん ?ハム ?卵 ?玉ねぎ|マヨネーズ 塩 こしょう|light
+かぼちゃサラダ|洋|20|かぼちゃ ?玉ねぎ ?ハム|マヨネーズ 塩|light
+コールスロー|洋|10|キャベツ ?にんじん ?コーン|マヨネーズ 酢 砂糖 塩|light
+シーザーサラダ|洋|10|レタス ?ベーコン ?卵 ?チーズ|マヨネーズ|light
+グリーンサラダ|洋|5|レタス ?トマト ?きゅうり|油 酢 塩|light
+カプレーゼ|洋|5|トマト チーズ|油 塩|light
+アボカドとトマトのサラダ|洋|5|アボカド トマト|油 塩|light
+キャロットラペ|洋|10|にんじん|酢 油 塩 砂糖|light
+にんじんのグラッセ|洋|20|にんじん|バター 砂糖 塩|light
+ジャーマンポテト|洋|20|じゃがいも ベーコン/ウインナー ?玉ねぎ|塩 こしょう 油|light
+フライドポテト|洋|20|じゃがいも|油 塩|light
+じゃがバター|洋|15|じゃがいも|バター 塩|light
+ほうれん草とベーコンのソテー|洋|10|ほうれん草 ベーコン|バター 塩 こしょう|light
+アスパラベーコン|洋|10|アスパラ ベーコン|塩 こしょう 油|light
+ブロッコリーのにんにく炒め|洋|10|ブロッコリー|にんにく 油 塩|light
+ウインナーとキャベツの炒め物|洋|10|ウインナー キャベツ|塩 こしょう 油|light
+ラタトゥイユ|洋|35|なす 玉ねぎ トマト缶/トマト ?ズッキーニ ?ピーマン ?パプリカ|にんにく 油 コンソメ 塩|main
+白菜のクリーム煮|洋|20|白菜 牛乳 ?ベーコン ?ハム|コンソメ バター 片栗粉|main
+ポトフ|洋|40|キャベツ/じゃがいも ウインナー/ベーコン ?にんじん ?玉ねぎ|コンソメ 塩 こしょう|soup
+ミネストローネ|洋|30|トマト缶 玉ねぎ ?にんじん ?キャベツ ?ベーコン ?じゃがいも|コンソメ 塩 油|soup
+キャベツのコンソメスープ|洋|15|キャベツ ?ベーコン ?ウインナー ?玉ねぎ|コンソメ 塩|soup
+野菜スープ|洋|20|玉ねぎ/キャベツ/にんじん ?ベーコン ?じゃがいも|コンソメ 塩|soup
+コーンスープ|洋|15|コーン 牛乳 ?玉ねぎ|コンソメ バター 塩|soup
+オニオンスープ|洋|30|玉ねぎ|コンソメ バター 塩 こしょう|soup
+クラムチャウダー|洋|30|あさり 牛乳 ?じゃがいも ?玉ねぎ ?にんじん ?ベーコン|コンソメ バター 小麦粉|soup
+かぼちゃのポタージュ|洋|30|かぼちゃ 牛乳 ?玉ねぎ|コンソメ バター|soup
+トマト鍋|洋|30|トマト缶 ?鶏肉 ?キャベツ ?ウインナー ?玉ねぎ|コンソメ にんにく|soup
+ピザトースト|洋|10|食パン チーズ ?ピーマン ?玉ねぎ ?ウインナー ?ハム ?トマト|ケチャップ|big
+チーズトースト|洋|5|食パン チーズ||light
+フレンチトースト|洋|15|食パン 卵 牛乳|砂糖 バター|snack
+サンドイッチ|洋|15|食パン ?卵 ?ハム ?きゅうり ?レタス ?トマト ?ツナ|マヨネーズ ?バター|light
+卵サンド|洋|15|食パン 卵|マヨネーズ 塩|light
+スイートポテト|洋|40|さつまいも ?牛乳 ?卵|砂糖 バター|snack
+プリン|洋|40|卵 牛乳|砂糖|snack
+ホットケーキ|洋|20|卵 牛乳|小麦粉 砂糖|snack
+クレープ|洋|20|卵 牛乳|小麦粉 砂糖 バター|snack
+</script>
+<script>
+{
+const DATA=document.getElementById("dishData").textContent.trim().split("\n").map(l=>{
+  const [name,g,min,i,s,c]=l.split("|");
+  const parse=t=>(t||"").trim().split(/\s+/).filter(Boolean).map(w=>({opt:w[0]==="?",alts:w.replace(/^\?/,"").split("/")}));
+  return {name,g,min:+min,ing:parse(i),sea:parse(s),c:c||"main"};
+});
+const SYN={
+"豚肉":[["豚","ポーク"],["ひき","挽","ミンチ"]],"鶏肉":[["鶏","とり肉","チキン","ささみ","手羽","むね肉","もも肉"],["鶏ガラ","ひき","挽","ミンチ"]],
+"牛肉":[["牛肉","牛こま","牛バラ","牛切","牛薄","牛ロース","牛もも","牛すじ","牛ステーキ","牛ヒレ","ビーフ"],["ひき","挽"]],
+"ひき肉":[["ひき肉","挽肉","挽き肉","ミンチ","合いびき","合挽"]],"卵":[["卵","たまご","玉子"]],
+"玉ねぎ":[["玉ねぎ","玉葱","たまねぎ","タマネギ","オニオン"]],"ねぎ":[["ねぎ","ネギ","葱"],["玉ねぎ","たまねぎ","タマネギ","玉葱"]],
+"にんじん":[["にんじん","人参","ニンジン"]],"じゃがいも":[["じゃがいも","ジャガイモ","じゃが芋","馬鈴薯","メークイン","男爵"]],
+"大根":[["大根","だいこん"],["切り干し","切干"]],"切り干し大根":[["切り干し","切干"]],"豆腐":[["豆腐","とうふ"],["高野","凍り"]],
+"高野豆腐":[["高野豆腐","凍り豆腐"]],"鮭":[["鮭","さけ","サーモン","しゃけ"]],"さば":[["さば","鯖","サバ"]],"ぶり":[["ぶり","鰤","ブリ"]],
+"あじ":[["あじ","鯵","アジ"]],"さんま":[["さんま","秋刀魚","サンマ"]],"たら":[["たら","鱈","タラ"],["たらこ","タラコ"]],"たらこ":[["たらこ","タラコ"]],
+"明太子":[["明太子","めんたいこ"]],"かれい":[["かれい","カレイ","鰈"]],"鯛":[["鯛"]],"まぐろ":[["まぐろ","マグロ","鮪"]],
+"えび":[["えび","エビ","海老"]],"いか":[["いか","イカ","烏賊"]],"たこ":[["たこ","タコ","蛸"]],"ほたて":[["ほたて","ホタテ","帆立"]],
+"あさり":[["あさり","アサリ","浅利"]],"しらす":[["しらす","シラス","ちりめん"]],"ちくわ":[["ちくわ","竹輪"]],"カニカマ":[["カニカマ","かにかま","カニかま"]],
+"ほうれん草":[["ほうれん草","ほうれんそう"]],"なす":[["なす","ナス","茄子"]],"トマト":[["トマト"],["トマト缶","カットトマト","ホールトマト","ケチャップ"]],
+"トマト缶":[["トマト缶","カットトマト","ホールトマト"]],"ツナ":[["ツナ","シーチキン"]],"ウインナー":[["ウインナー","ウィンナー","ソーセージ"]],
+"里芋":[["里芋","さといも","里いも"]],"さつまいも":[["さつまいも","さつま芋","サツマイモ"]],"長芋":[["長芋","長いも","山芋","とろろ"]],
+"こんにゃく":[["こんにゃく","蒟蒻","しらたき","糸こん"]],"パスタ":[["パスタ","スパゲッティ","スパゲティ","マカロニ","ペンネ"]],
+"そば":[["そば","蕎麦"],["焼きそば","中華そば"]],"そうめん":[["そうめん","素麺","ひやむぎ"]],"中華麺":[["中華麺","焼きそば","ラーメン","中華そば"]],
+"食パン":[["食パン","パン","バゲット"],["パン粉"]],"ご飯":[["ご飯","ごはん","米","白米"],["米粉","米酢","米油"]],
+"白菜":[["白菜","はくさい"]],"ニラ":[["ニラ","にら","韮"]],"きゅうり":[["きゅうり","胡瓜","キュウリ"]],"かぼちゃ":[["かぼちゃ","南瓜","カボチャ"]],
+"ごぼう":[["ごぼう","牛蒡","ゴボウ"]],"れんこん":[["れんこん","蓮根","レンコン"]],"油揚げ":[["油揚げ","油あげ","お揚げ"]],"厚揚げ":[["厚揚げ","生揚げ"]],
+"牛乳":[["牛乳","ミルク"]],"生クリーム":[["生クリーム"]],"きのこ":[["きのこ","キノコ","しめじ","えのき","しいたけ","椎茸","まいたけ","舞茸","エリンギ","マッシュルーム","なめこ"]],
+"いんげん":[["いんげん","インゲン"]],"ゴーヤ":[["ゴーヤ","にがうり"]],"大葉":[["大葉","しそ","シソ"]],"たけのこ":[["たけのこ","筍","タケノコ"]],
+"チャーシュー":[["チャーシュー","焼豚"]],"梅干し":[["梅干","梅"]],"天かす":[["天かす","揚げ玉"]],"焼売の皮":[["焼売の皮","シュウマイの皮","しゅうまいの皮"]],
+"コーン":[["コーン","とうもろこし"]],"わかめ":[["わかめ","ワカメ"]],"春雨":[["春雨","はるさめ"]],"キムチ":[["キムチ"]],"レバー":[["レバー"]],
+"醤油":[["醤油","しょうゆ","しょう油","醬油"]],"こしょう":[["こしょう","胡椒","コショウ"]],"砂糖":[["砂糖","さとう","三温糖","きび糖"]],
+"みりん":[["みりん","味醂"]],"酒":[["酒"]],"味噌":[["味噌","みそ"]],"酢":[["酢"]],"油":[["油","オイル"],["油揚げ","油あげ"]],
+"ごま油":[["ごま油","胡麻油"]],"マヨネーズ":[["マヨ"]],"ソース":[["ソース"],["オイスター","ミートソース","ホワイトソース","スイートチリ"]],
+"鶏ガラ":[["鶏ガラ","鶏がら","中華だし","ウェイパー","シャンタン","中華スープの素"]],"だし":[["だし","出汁","ほんだし"],["鶏ガラ"]],
+"めんつゆ":[["めんつゆ","つゆ"]],"小麦粉":[["小麦粉","薄力粉","強力粉"]],"にんにく":[["にんにく","ニンニク","大蒜","ガーリック"]],
+"しょうが":[["しょうが","生姜","ショウガ","ジンジャー"]],"オイスターソース":[["オイスター"]],"豆板醤":[["豆板醤","トウバンジャン"]],
+"ポン酢":[["ポン酢","ぽん酢"]],"カレールー":[["カレールー","カレールウ","カレー"],["カレー粉"]],"シチュールー":[["シチュー"]],
+"ごま":[["ごま","胡麻","ゴマ"],["ごま油","胡麻油"]],"焼肉のタレ":[["焼肉のタレ","焼き肉のタレ","焼肉のたれ","焼き肉のたれ"]],
+"鷹の爪":[["鷹の爪","唐辛子","一味"]],"コチュジャン":[["コチュジャン"]],"甜麺醤":[["甜麺醤","テンメンジャン"]],"ナンプラー":[["ナンプラー"]],
+"ラー油":[["ラー油"]],"カレー粉":[["カレー粉"]],"青のり":[["青のり","青海苔"]],"かつお節":[["かつお節","鰹節","おかか"]]
+};
+const PRESETS=["ご飯（米）","パスタ","食パン","塩","こしょう","醤油","みりん","酒","砂糖","味噌","酢","サラダ油","ごま油","オリーブオイル","マヨネーズ","ケチャップ","ソース","コンソメ","鶏ガラスープの素","和風だし","めんつゆ","ポン酢","片栗粉","小麦粉","パン粉","バター","にんにくチューブ","しょうがチューブ","オイスターソース","豆板醤","カレールー"];
+let state={seasonings:["ご飯（米）","塩","こしょう","醤油","みりん","砂糖","酒","サラダ油","和風だし","片栗粉","マヨネーズ","ケチャップ"],items:["玉ねぎ","卵","豚こま","キャベツ"]};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let saveT=null,sample=null,shown=[],dictHits=[],dictShown=0,aiNames=[];
+const PAGE=8;
+const CATS={big:["がっつり（ご飯・麺）","#f6a96b"],main:["おかず（主菜）","#f6d36b"],light:["軽め・副菜","#a8d8a0"],soup:["汁物・鍋","#9cc9ec"],snack:["おやつ","#f3b6c8"]};
+const CATKEY=Object.fromEntries(Object.entries(CATS).map(([k,v])=>[v[0],k]));
+let grpShown={};
+const SOFT=["しょうが","にんにく","こしょう","鷹の爪","ごま","青のり","かつお節"];
+
+$("dictCount").textContent=DATA.length;
+function chipHTML(list,kind){
+  if(!list.length)return `<span class="empty">${kind==="s"?"まだありません。下の候補をタップ":"まだありません。冷蔵庫の中身を入れてください"}</span>`;
+  return list.map((v,i)=>`<span class="chip">${esc(v)}<button type="button" data-k="${kind}" data-v="${esc(v)}" aria-label="${esc(v)}を削除">×</button></span>`).join("");
+}
+function render(){
+  $("seasonChips").innerHTML=chipHTML(state.seasonings,"s");
+  $("itemChips").innerHTML=chipHTML(state.items,"i");
+  $("presets").innerHTML=PRESETS.filter(p=>!state.seasonings.includes(p)).map(p=>`<button type="button" class="pre" data-p="${esc(p)}">＋${esc(p)}</button>`).join("");
+  if(typeof bind==="function")bind();
+}
+function addTo(key,text){String(text).split(/[、,，\n]/).map(s=>s.replace(/\s+/g," ").trim().slice(0,30)).filter(Boolean).forEach(v=>{if(!state[key].includes(v))state[key].push(v)});render();save()}
+/* ---- 保存：自分の冷蔵庫・みんなの冷蔵庫を同じ仕組みで同期 ---- */
+const stores={mine:state,shared:{seasonings:[],items:[]}};
+const mkSync=()=>({ref:null,noWrite:false,status:"connecting",loaded:false,pending:0,stash:null,t:null});
+const sync={mine:mkSync(),shared:mkSync()};sync.mine.status="off";
+let mode="mine";
+try{if(localStorage.getItem("fridge-mode")==="shared")mode="shared"}catch(e){}
+function writeStore(m){
+  const s=sync[m];
+  if(m==="mine"){try{localStorage.setItem("fridge-state",JSON.stringify(stores.mine))}catch(e){}}
+  if(!s.loaded)s.dirty=true;
+  if(!s.ref||s.status==="readonly"||s.status==="off")return;
+  clearTimeout(s.t);s.pending++;
+  s.t=setTimeout(()=>{
+    s.ref.set({seasonings:stores[m].seasonings.slice(),items:stores[m].items.slice(),updated:Date.now()})
+      .then(()=>{s.pending=0;s.stash=null;s.loaded=true;if(m===mode)updateMode()})
+      .catch(e=>{s.pending=0;
+        const code=String((e&&(e.code||e.name))||""),msg=String((e&&e.message)||"");
+        if(/network|timeout|unavailable|offline|fetch/i.test(code+msg)){if(m===mode)setNote("保存に失敗しました。通信状況を確認してください。",true)}
+        else{s.status="readonly";s.err=code||msg.slice(0,40);if(m===mode)updateMode()}
+        if(s.stash){const d=s.stash;s.stash=null;applyRemote(m,d)}});
+  },500);
+}
+function save(){writeStore(mode)}
+function applyRemote(m,d){
+  const s=sync[m];
+  if(s.status==="connecting")s.status=s.noWrite?"readonly":"ok";
+  if(s.pending){s.stash=d;return}
+  if(!s.loaded&&s.dirty){s.loaded=true;s.dirty=false;writeStore(m);if(m===mode)updateMode();return}
+  const empty=!d||(!Array.isArray(d.items)&&!Array.isArray(d.seasonings));
+  if(m==="mine"&&empty){s.loaded=true;writeStore("mine");if(m===mode)updateMode();return}
+  stores[m].seasonings=Array.isArray(d&&d.seasonings)?d.seasonings.slice():[];
+  stores[m].items=Array.isArray(d&&d.items)?d.items.slice():[];
+  s.loaded=true;
+  if(m===mode)updateMode();
+}
+function load(d){if(!d)return;if(Array.isArray(d.seasonings))stores.mine.seasonings=d.seasonings;if(Array.isArray(d.items))stores.mine.items=d.items}
+function setNote(t,err){$("modeNote").textContent=t;$("modeNote").className="note modeNote"+(err?" err":"")}
+function updateMode(){
+  state=stores[mode];
+  $("mMine").setAttribute("aria-pressed",mode==="mine");$("mShared").setAttribute("aria-pressed",mode==="shared");
+  const sharedStatus=sync.shared.status,sharedLoaded=sync.shared.loaded;
+  const ro=mode==="shared"?sharedStatus!=="ok":sync.mine.status==="connecting";
+  document.querySelector(".door").classList.toggle("ro",ro);
+  $("sharedEmpty").hidden=!(mode==="shared"&&sharedStatus==="ok"&&sharedLoaded&&!stores.shared.items.length&&!stores.shared.seasonings.length);
+  if(mode==="mine")setNote({ok:"自分専用です。あなたのアカウントだけに保存されます。",connecting:"自分の冷蔵庫を読み込んでいます…",readonly:"保存する権限がありません（このブラウザには残ります）。",off:"自分専用です。この端末の中だけに保存されます。"}[sync.mine.status],sync.mine.status==="readonly");
+  else setNote({ok:"みんなの冷蔵庫：共有リンクを開いた人どうしで同じ中身を編集します。変更はすぐ反映されます。",connecting:"みんなの冷蔵庫に接続しています…",readonly:"みんなの冷蔵庫に保存できませんでした（権限エラー）。"+(sync.shared.err?`［${sync.shared.err}］`:""),off:FB_READY?"みんなの冷蔵庫に接続できません。通信状況を確認してください。":"みんなの冷蔵庫はまだ準備中です（データベース未設定）。"}[sharedStatus],sharedStatus==="off"||sharedStatus==="readonly");
+  render();
+}
+function setMode(m){mode=m;try{localStorage.setItem("fridge-mode",m)}catch(e){}updateMode()}
+$("mMine").onclick=()=>setMode("mine");
+$("mShared").onclick=()=>setMode("shared");
+$("seedBtn").onclick=()=>{stores.shared.seasonings=stores.mine.seasonings.slice();stores.shared.items=stores.mine.items.slice();sync.shared.loaded=true;updateMode();save()};
+
+try{const l=JSON.parse(localStorage.getItem("fridge-state")||"null");if(l)load(l)}catch(e){}
+render();
+
+/* ---- 辞書照合 ---- */
+function matchIn(list,key){
+  const [al,ex]=SYN[key]||[[key]];
+  return list.some(p=>al.some(a=>p.includes(a))&&!(ex||[]).some(e=>p.includes(e)));
+}
+const GEN={"和":"和食","洋":"洋食","中":"中華","韓":"韓国","エ":"エスニック"};
+function evalDish(d){
+  const items=state.items,pool=state.items.concat(state.seasonings);
+  let fromItems=0;const uses=[],missI=[],missS=[];
+  for(const w of d.ing){
+    const hit=w.alts.find(a=>matchIn(pool,a));
+    if(hit){uses.push(hit);if(matchIn(items,hit))fromItems++}
+    else if(!w.opt)missI.push(w.alts.join("か"));
+  }
+  for(const w of d.sea){if(!w.opt&&!w.alts.some(a=>SOFT.includes(a))&&!w.alts.some(a=>matchIn(pool,a)))missS.push(w.alts.join("か"))}
+  const miss=missI.length+missS.length;
+  return {name:d.name,search:d.name,genre:GEN[d.g],minutes:d.min,uses,missing:missI.concat(missS),missI:missI.length,miss,fromItems,src:"dict",cat:d.c,score:miss*10-fromItems*3+d.min/100};
+}
+function search(){
+  const gmap={"和食":["和"],"洋食":["洋"],"中華":["中"],"エスニック":["韓","エ"]};
+  const g=gmap[$("genre").value],t=$("time").value,buy=$("buy").checked,sz=$("size").value;
+  const out=[];
+  for(const d of DATA){
+    if(g&&!g.includes(d.g))continue;
+    if(sz&&d.c!==sz)continue;
+    if(t==="15分以内"&&d.min>15)continue;
+    if(t==="30分以内"&&d.min>30)continue;
+    if(t==="じっくり"&&d.min<30)continue;
+    const r=evalDish(d);
+    if(!r.fromItems)continue;
+    if(buy?(r.missI>1||r.miss>2):r.miss>0)continue;
+    out.push(r);
+  }
+  return out.sort((a,b)=>a.score-b.score);
+}
+
+function cleanWord(s){return String(s||"").replace(/[〜~～（(【\[「『].*$/,"").replace(/[!！?？♪☆★・、。\s]+/g," ").trim()}
+function links(d){
+  const word=cleanWord(d.search)||cleanWord(d.name),q=encodeURIComponent(word);
+  const ing=(d.uses||[]).slice(0,3).map(cleanWord).filter(Boolean),iq=encodeURIComponent(ing.join(" "));
+  return `<a class="ext rk" href="https://recipe.rakuten.co.jp/search/${q}/" target="_blank" rel="noopener">楽天で「${esc(word)}」↗</a><a class="ext cp" href="https://cookpad.com/jp/search/${q}" target="_blank" rel="noopener">クックパッドで「${esc(word)}」↗</a>${ing.length?`<a class="ext cp" href="https://cookpad.com/jp/search/${iq}" target="_blank" rel="noopener">食材で探す（${esc(ing.join("・"))}）↗</a>`:""}`;
+}
+function card(d){
+  const i=shown.push(d)-1;
+  return `<article class="card"><h3>${esc(d.name)}</h3>
+    <div class="meta">${CATS[d.cat]?`<span class="tag cat" style="--c:${CATS[d.cat][1]}">${CATS[d.cat][0]}</span>`:""}<span class="tag ${d.src==="ai"?"ai":""}">${d.src==="ai"?"Claude提案":"定番"}</span><span class="tag">${esc(d.genre)}</span>${Number(d.minutes)?`<span class="tag">約${esc(d.minutes)}分</span>`:""}${(d.missing||[]).map(m=>`<span class="tag miss">買い足し：${esc(m)}</span>`).join("")}</div>
+    ${d.summary?`<p>${esc(d.summary)}</p>`:""}<div class="uses">使う食材：${esc((d.uses||[]).join("、"))}</div>
+    <div class="acts"><button class="btn" type="button" data-r="${i}">作り方を見る</button>${d.src==="ai"?"":links(d)}</div></article>`;
+}
+function setStatus(t,err){$("status").className="status"+(err?" err":"");$("status").innerHTML=t}
+function renderDict(){
+  const sz=$("size").value,first=sz?PAGE:4;grpShown={};
+  const order=sz?[sz]:Object.keys(CATS);
+  $("dictList").innerHTML=order.map(k=>{
+    const list=dictHits.filter(d=>d.cat===k);if(!list.length)return "";
+    return `<section class="grp" style="--c:${CATS[k][1]}"><h4><span class="dot"></span>${CATS[k][0]}<span class="cnt">${list.length}品</span></h4><div class="results" id="g-${k}"></div><button class="btn more" type="button" data-more="${k}" hidden></button></section>`;
+  }).join("");
+  order.forEach(k=>{grpShown[k]=0;moreGroup(k,first)});
+  bind();
+}
+function moreGroup(k,n){
+  const list=dictHits.filter(d=>d.cat===k),box=$("g-"+k);if(!box)return;
+  const add=list.slice(grpShown[k],grpShown[k]+n);grpShown[k]+=add.length;
+  box.insertAdjacentHTML("beforeend",add.map(card).join(""));
+  const b=box.parentNode.querySelector("[data-more]"),rest=list.length-grpShown[k];
+  b.hidden=rest<=0;b.textContent=`もっと見る（残り${rest}品）`;bind();
+}
+
+$("go").addEventListener("click",()=>{
+  if(!state.items.length){setStatus("「今ある食材」を1つ以上入れてください。",true);return}
+  shown=[];dictShown=0;aiNames=[];
+  dictHits=search();
+  $("dictList").innerHTML="";$("aiList").innerHTML="";$("aiStatus").textContent="";
+  $("resultArea").hidden=false;
+  $("dictHead").textContent=`定番料理 ${dictHits.length}品`;
+  renderDict();
+  if(!dictHits.length)$("dictList").innerHTML=`<p class="empty">条件に合う定番料理が見つかりませんでした。「少しなら買い足してもいい」をオンにするか、下のClaude提案を試してください。</p>`;
+  $("aiBtn").textContent="Claudeに定番以外も考えてもらう";
+  setStatus(`辞書${DATA.length}品から${dictHits.length}品見つかりました。`);
+  $("resultArea").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion:reduce)").matches?"auto":"smooth",block:"start"});
+});
+
+
+function parseJSON(v){
+  if(v&&typeof v==="object")return v;
+  const t=String(v??"");const m=t.match(/\{[\s\S]*\}/);return JSON.parse(m?m[0]:t);
+}
+const MODEL="claude-haiku-5-5";
+async function askJSON(prompt,signal){
+  const r=await sample(prompt,{signal});return parseJSON(r&&r.text);
+}
+function apiKey(){try{return localStorage.getItem("fridge-api-key")||""}catch(e){return ""}}
+function makeSample(){
+  if(!apiKey())return null;
+  return async(prompt,o)=>{
+    let res;
+    try{
+      res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",signal:o&&o.signal,headers:{"content-type":"application/json","x-api-key":apiKey(),"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:MODEL,max_tokens:2000,messages:[{role:"user",content:prompt}]})});
+    }catch(e){if(e&&e.name==="AbortError")throw e;throw {code:"network"}}
+    if(!res.ok){let b={};try{b=await res.json()}catch(e){}throw {code:res.status===401?"bad_key":res.status===429||res.status===529?"rate_limited":res.status===400&&/credit/i.test(JSON.stringify(b))?"no_credit":"http_"+res.status,message:(b.error&&b.error.message)||""}}
+    const j=await res.json();
+    return {text:(j.content||[]).filter(c=>c.type==="text").map(c=>c.text).join("")};
+  };
+}
+function cond(){return `ジャンル:${$("genre").value} / 調理時間:${$("time").value} / ${$("people").value} / 買い足し:${$("buy").checked?"少しならOK（不足食材として明記）":"不可（下記の食材と調味料だけで作る）"}`}
+function errText(e){const c=e&&e.code;return c==="rate_limited"?"混み合っています。少し待ってからもう一度押してください。":c==="bad_key"?"APIキーが正しくありません。設定で入れ直してください。":c==="no_credit"?"APIの残高が足りません。Anthropicのコンソールでクレジットを確認してください。":c==="network"?"通信できませんでした。電波を確認してください。":"うまく取得できませんでした。もう一度押してください。"+(c?`［${c}］`:"")}
+
+$("aiBtn").addEventListener("click",async()=>{
+  if(!sample){$("aiStatus").textContent="Claudeを使うには、上の「共有リンクとClaudeの設定」でAPIキーを入れてください。";$("settings").open=true;return}
+  const btn=$("aiBtn");btn.disabled=true;$("aiStatus").innerHTML='<span class="spin"></span>考えています…';
+  const exclude=dictHits.map(d=>d.name).concat(aiNames);
+  const prompt=`あなたは家庭料理に詳しい料理アシスタントです。次の条件で作れる家庭料理を8品提案してください。
+【今ある食材（主役にする。全部使う必要はない）】${state.items.join("、")}
+【常備の調味料・主食（これ以外の調味料は使わない。水は使ってよい）】${state.seasonings.join("、")||"なし"}
+【条件】${cond()}${$("size").value?` / 食べたい量:${CATS[$("size").value][0]}`:""}
+【除外：すでに表示済みなので出さない】${exclude.slice(0,150).join("、")||"なし"}
+楽天レシピやクックパッドにレシピがある実在の料理にし、互いに似すぎないこと。
+"search"には、レシピサイトで検索してたくさんヒットする一般的な料理名だけを入れる（装飾・記号なし、2〜10文字）。
+JSONのみで返す: {"dishes":[{"name":"料理名","search":"検索用の一般的な料理名","genre":"和食など","cat":"がっつり（ご飯・麺）/おかず（主菜）/軽め・副菜/汁物・鍋/おやつ のどれか","minutes":数値,"summary":"どんな料理か1文","uses":["使う食材"],"missing":["買い足す食材（なければ空配列）"]}]}`;
+  try{
+    const v=await askJSON(prompt);
+    const list=(Array.isArray(v&&v.dishes)?v.dishes:[]).filter(d=>d&&typeof d.name==="string"&&d.name.trim()&&!exclude.includes(d.name)).map(d=>Object.assign(d,{uses:Array.isArray(d.uses)?d.uses:[],missing:Array.isArray(d.missing)?d.missing:[],minutes:Number(d.minutes)||"?"})).map(d=>Object.assign(d,{src:"ai",cat:CATKEY[d.cat]||Object.keys(CATS).find(k=>String(d.cat||"").includes(CATS[k][0].slice(0,2)))||"main"}));
+    if(!list.length)throw new Error("empty");
+    aiNames.push(...list.map(d=>d.name));
+    $("aiList").insertAdjacentHTML("beforeend",list.map(card).join(""));bind();
+    $("aiStatus").textContent=`Claudeの提案 ${aiNames.length}品`;
+    btn.textContent="さらに考えてもらう";
+  }catch(e){$("aiStatus").textContent=errText(e)}
+  btn.disabled=false;
+});
+
+let recipeCtl=null;
+async function openRecipe(d){
+  if(!d)return;
+  if(recipeCtl)recipeCtl.abort();const ctl=recipeCtl=new AbortController();
+  const L=d.src==="ai"?"":`<h2 style="margin-top:20px">実在のレシピも見る</h2><div class="acts" style="margin-top:10px">${links(d)}</div>`;
+  const P=$("panel");$("sheet").classList.add("on");
+  P.innerHTML=`<button class="btn ghost close" type="button">閉じる</button><h3 id="rTitle">${esc(d.name)}</h3><p class="status"><span class="spin"></span>作り方をまとめています…</p>${L}`;bind();
+  if(!sample){P.querySelector(".status").textContent=d.src==="ai"?"作り方を見るには、設定でClaudeのAPIキーを入れてください。":"作り方を見るには、設定でClaudeのAPIキーを入れてください。下のリンクから実在のレシピも見られます。";return}
+  const wish=d.src==="user";
+  const prompt=`料理「${d.name}」の家庭向けレシピを書いてください。
+手持ちの食材：${state.items.join("、")||"なし"}${(d.missing||[]).length?`（買い足し予定：${d.missing.join("、")}）`:""}
+手持ちの調味料・主食：${state.seasonings.join("、")||"なし"}
+${wish?"手持ちのものをできるだけ使い、足りない食材・調味料は missing に入れる。料理名として成り立たない・食べ物でない場合は {\"error\":\"理由\"} だけを返す。":"手持ちの調味料以外は使わない（水は可）。"}
+${$("people").value}。初心者にも分かる具体的な手順で、火加減と時間を書く。
+JSONのみで返す: {"servings":"2人分","minutes":数値,"ingredients":[{"name":"材料","amount":"分量"}],${wish?'"missing":["買い足しが必要なもの"],':""}"steps":["手順"],"tips":"コツを1〜2文"}`;
+  try{
+    const r=await askJSON(prompt,ctl.signal);
+    if(ctl!==recipeCtl)return;
+    if(!r||r.error||!Array.isArray(r.steps)||!r.steps.length){P.querySelector(".status").textContent=r&&r.error?`作れませんでした：${r.error}`:"うまく取得できませんでした。もう一度試してください。";P.querySelector(".status").className="status err";return}
+    const miss=(wish?r.missing:d.missing)||[];
+    P.innerHTML=`<button class="btn ghost close" type="button">閉じる</button><h3 id="rTitle">${esc(d.name)}</h3>
+      <div class="meta">${r.servings?`<span class="tag">${esc(r.servings)}</span>`:""}${r.minutes?`<span class="tag">約${esc(r.minutes)}分</span>`:""}${miss.map(m=>`<span class="tag miss">買い足し：${esc(m)}</span>`).join("")}</div>
+      <h2 style="margin-top:14px">材料</h2><table class="ing"><tbody>${(r.ingredients||[]).map(x=>`<tr><td>${esc(x&&x.name)}</td><td>${esc(x&&x.amount)}</td></tr>`).join("")}</tbody></table>
+      <h2>作り方 <span class="note">終わった手順をタップ</span></h2><ol class="steps" style="margin-top:10px">${r.steps.map((s,k)=>`<li><span class="n">${k+1}</span><span>${esc(s)}</span></li>`).join("")}</ol>
+      ${r.tips?`<div class="tips">コツ：${esc(r.tips)}</div>`:""}${L}
+      <p class="note" style="margin-top:16px">レシピはClaudeが作成したものです。加熱は中までしっかり確認してください。</p>`;bind();
+  }catch(e){if(ctl!==recipeCtl||(e&&e.name==="AbortError"))return;const st=P.querySelector(".status");if(st){st.textContent=errText(e);st.className="status err"}}
+}
+function closeSheet(){$("sheet").classList.remove("on");if(recipeCtl){recipeCtl.abort();recipeCtl=null}}
+$("wishForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const name=$("wishIn").value.replace(/\s+/g," ").trim();
+  if(!name){$("wishStatus").className="status err";$("wishStatus").textContent="作りたい料理名を入れてください。";return}
+  $("wishStatus").textContent="";
+  const hit=DATA.find(x=>x.name===name)||DATA.find(x=>x.name.length>=3&&(name.includes(x.name)||x.name.includes(name)));
+  if(hit){const r=evalDish(hit);r.src="dict";r.name=hit.name;openRecipe(r)}
+  else openRecipe({name,search:name,src:"user",missing:[]});
+});
+
+/* iOSでも確実に押せるよう、ボタンごとに直接ハンドラを付ける */
+function delChip(b){const key=b.dataset.k==="s"?"seasonings":"items";const v=b.dataset.v;const i=state[key].indexOf(v);if(i>-1)state[key].splice(i,1);render();save()}
+function bind(){
+  document.querySelectorAll("button[data-k]").forEach(b=>{b.onclick=ev=>{ev.preventDefault();ev.stopPropagation();delChip(b)}});
+  document.querySelectorAll("button[data-p]").forEach(b=>{b.onclick=()=>addTo("seasonings",b.dataset.p)});
+  document.querySelectorAll("button[data-more]").forEach(b=>{b.onclick=()=>moreGroup(b.dataset.more,PAGE)});
+  document.querySelectorAll("button[data-r]").forEach(b=>{b.onclick=()=>openRecipe(shown[+b.dataset.r])});
+  document.querySelectorAll(".steps li").forEach(li=>{li.onclick=()=>li.classList.toggle("done")});
+  document.querySelectorAll("#panel .close").forEach(b=>{b.onclick=closeSheet});
+}
+$("sheet").onclick=e=>{if(e.target===$("sheet"))closeSheet()};
+new MutationObserver(bind).observe(document.body,{childList:true,subtree:true});
+bind();
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
+$("seasonForm").addEventListener("submit",e=>{e.preventDefault();addTo("seasonings",$("seasonIn").value);$("seasonIn").value=""});
+$("itemForm").addEventListener("submit",e=>{e.preventDefault();addTo("items",$("itemIn").value);$("itemIn").value=""});
+$("clearItems").addEventListener("click",()=>{state.items=[];render();save()});
+
+updateMode();
+const dataOf=snap=>snap&&typeof snap.data==="function"?snap.data():snap;
+function subscribe(m,ref){
+  const s=sync[m];s.ref=ref;
+  const timer=setTimeout(()=>{if(s.status==="connecting"){s.status="off";if(m===mode)updateMode()}},10000);
+  const ok=d=>{clearTimeout(timer);applyRemote(m,d||null)};
+  const fail=()=>{clearTimeout(timer);if(!s.loaded){s.status="off";if(m===mode)updateMode()}};
+  if(typeof ref.onSnapshot==="function")ref.onSnapshot(x=>ok(dataOf(x)),fail);
+  else{const poll=async()=>{try{ok(dataOf(await ref.get()))}catch(e){fail()}};poll();setInterval(()=>{if(m===mode&&!document.hidden)poll()},5000)}
+}
+/* ---- 共有リンク（部屋ID）・Firebase・APIキー ---- */
+var FB_READY=!!(window.FIREBASE_CONFIG&&window.FIREBASE_CONFIG.projectId&&window.firebase);
+function roomId(){
+  const u=new URL(location.href);let r=u.searchParams.get("room");
+  if(!r||!/^[A-Za-z0-9_-]{16,64}$/.test(r)){
+    try{r=localStorage.getItem("fridge-room")}catch(e){}
+    if(!r||!/^[A-Za-z0-9_-]{16,64}$/.test(r)){const a=new Uint8Array(16);crypto.getRandomValues(a);r=Array.from(a,b=>b.toString(16).padStart(2,"0")).join("")}
+    u.searchParams.set("room",r);try{history.replaceState(null,"",u.toString())}catch(e){}
+  }
+  try{localStorage.setItem("fridge-room",r)}catch(e){}
+  return r;
+}
+const ROOM=roomId();
+$("shareUrl").value=(()=>{const u=new URL(location.href);u.hash="";return u.toString()})();
+$("copyShare").onclick=async()=>{try{await navigator.clipboard.writeText($("shareUrl").value);$("shareStatus").textContent="コピーしました。LINEなどで送ってください。"}catch(e){$("shareUrl").select();$("shareStatus").textContent="上のリンクを長押ししてコピーしてください。"}};
+sample=makeSample();
+function keyNote(){$("keyStatus").textContent=apiKey()?"APIキーは保存済みです（"+apiKey().slice(0,10)+"…）。":"まだ保存されていません。"}
+keyNote();
+$("keyForm").addEventListener("submit",e=>{e.preventDefault();const k=$("keyIn").value.trim();if(!/^sk-ant-/.test(k)){$("keyStatus").textContent="「sk-ant-」で始まるキーを入れてください。";return}try{localStorage.setItem("fridge-api-key",k)}catch(e){}$("keyIn").value="";sample=makeSample();keyNote()});
+$("keyClear").onclick=()=>{try{localStorage.removeItem("fridge-api-key")}catch(e){}sample=null;keyNote()};
+sync.mine.status="off";
+if(!FB_READY){sync.shared.status="off";updateMode()}
+else{
+  try{
+    const app=firebase.apps.length?firebase.app():firebase.initializeApp(window.FIREBASE_CONFIG);
+    const ref=app.firestore().collection("fridges").doc(ROOM);
+    subscribe("shared",{set:v=>ref.set(v),onSnapshot:(cb,err)=>ref.onSnapshot(s=>cb({data:()=>s.exists?s.data():null}),err)});
+  }catch(e){sync.shared.status="off";sync.shared.err=String(e&&e.code||"");updateMode()}
+}
+}
+</script>
+</body>
+</html>

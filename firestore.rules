@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 共有リンクの部屋IDを知っている人だけが読み書きできる
+    match /fridges/{room} {
+      allow read: if room.size() >= 16;
+      allow create, update: if room.size() >= 16
+        && request.resource.data.keys().hasOnly(['items', 'seasonings', 'updated'])
+        && request.resource.data.items is list
+        && request.resource.data.items.size() <= 200
+        && request.resource.data.seasonings is list
+        && request.resource.data.seasonings.size() <= 200;
+      allow delete: if false;
+    }
+    // それ以外はすべて拒否
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
